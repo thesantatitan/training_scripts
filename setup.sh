@@ -1,3 +1,5 @@
+set -ex
+
 #install git and other stuff
 apt update
 apt install -y git
@@ -7,5 +9,5 @@ git clone https://github.com/thesantatitan/training_scripts.git
 cd training_scripts
 uv venv
 ls -la
-source .venv/bin/activate
+. .venv/bin/activate
 uv pip install -r requirements.txt
