@@ -5,6 +5,11 @@ import os
 hftoken = os.getenv("HF_TOKEN")
 
 app = modal.App("example-get-started")  # creating an App
+
+def cache_model():
+    from diffusers.pipelines.flux.pipeline_flux_control import FluxControlPipeline
+    pipe = FluxControlPipeline.from_pretrained("black-forest-labs/FLUX.1-dev")
+    
 image = (
     modal.Image.debian_slim()
     .apt_install(["git", "build-essential"])
@@ -13,7 +18,9 @@ image = (
     .run_commands('uv pip install --system --compile-bytecode huggingface_hub[cli]')
     .run_commands(f'uv pip install --system --compile-bytecode huggingface_hub[hf_transfer]').env({"HF_HUB_ENABLE_HF_TRANSFER":"1"})
     .run_commands(f'huggingface-cli login --token {hftoken}')
+    .run_commands(f'uv pip install --system --compile-bytecode wandb').env({"WANDB_API_KEY": os.getenv("WANDB_API_KEY")}).run_commands('wandb login')
     .run_commands('cd training_scripts')
+    .run_function(cache_model)
 )
 
 
