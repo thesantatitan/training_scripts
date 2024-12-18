@@ -6,7 +6,7 @@ image = (
     modal.Image.debian_slim()
     .apt_install(["git", "build-essential"])
     .run_commands('git clone https://github.com/thesantatitan/training_scripts.git')
-    .run_commands('cd training_scripts && uv add -r requirements.txt && uv add -r flux-control/requirements.txt')
+    .run_commands('cd training_scripts && uv install -r requirements.txt --compile-bytecode --system && uv install -r flux-control/requirements.txt --compile-bytecode --system')
 )
 
 
@@ -19,7 +19,7 @@ def check_gpus():
         subprocess.run(["nvidia-smi"], check=True)
     except Exception:
         print("no gpu found :(")
-    torch.cuda.is_available()
+    print(torch.cuda.is_available())
 
 
 @app.local_entrypoint()  # defining a CLI entrypoint
