@@ -1,12 +1,19 @@
 import modal
 import torch
+import os
+
+hftoken = os.getenv("HF_TOKEN")
 
 app = modal.App("example-get-started")  # creating an App
 image = (
     modal.Image.debian_slim()
     .apt_install(["git", "build-essential"])
     .run_commands('git clone https://github.com/thesantatitan/training_scripts.git')
-    .run_commands('cd training_scripts && uv install -r requirements.txt --compile-bytecode --system && uv install -r flux-control/requirements.txt --compile-bytecode --system')
+    .run_commands('uv pip install -r training_scripts/requirements.txt --compile-bytecode --system && uv pip install -r training_scripts/flux-control/requirements.txt --compile-bytecode --system')
+    .run_commands('uv pip install --system --compile-bytecode huggingface_hub[cli]')
+    .run_commands(f'uv pip install --system --compile-bytecode huggingface_hub[hf_transfer]').env({"HF_HUB_ENABLE_HF_TRANSFER":"1"})
+    .run_commands(f'huggingface-cli login --token {hftoken}')
+    .run_commands('cd training_scripts')
 )
 
 
