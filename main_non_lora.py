@@ -25,7 +25,6 @@ image = (
     .run_commands('uv pip install --system --compile-bytecode deepspeed')
     .add_local_file('./renders_dataset.jsonl', '/renders_dataset.jsonl',copy=True)
     .add_local_file('./flux-control/train_control_flux.py', '/flux-control/train_control_flux.py',copy=True)
-    .env({"WANDB_RESUME":"allow","WANDB_RUN_ID":"a1xoce3c"})
 )
 
 objaverse_volume = modal.CloudBucketMount(
