@@ -23,7 +23,7 @@ image = (
     .run_commands('uv pip install --system --compile-bytecode sentencepiece protobuf datasets')
     .run_function(cache_model)
     .add_local_file('./renders_dataset.jsonl', '/renders_dataset.jsonl',copy=True)
-    .run_commands('cd training_scripts && git pull')
+    .add_local_file('./flux-control/train_control_lora_flux.py', '/flux-control/train_control_lora_flux.py',copy=True)
 )
 
 objaverse_volume = modal.CloudBucketMount(
@@ -34,16 +34,16 @@ objaverse_volume = modal.CloudBucketMount(
 
 model_volume = modal.Volume.from_name('models_storage')
 
-@app.function(gpu="H100", image=image, volumes={'/datadisk':objaverse_volume, '/model_storage':model_volume}, timeout=600000)  # defining a Modal Function with a GPU
+@app.function(gpu="H100", cpu=5, image=image, volumes={'/datadisk':objaverse_volume, '/model_storage':model_volume}, timeout=86400)  # defining a Modal Function with a GPU
 def start_training():
     import subprocess
     command = [
-        "accelerate", "launch", "/training_scripts/flux-control/train_control_lora_flux.py",
+        "accelerate", "launch", "/flux-control/train_control_lora_flux.py",
         "--pretrained_model_name_or_path=black-forest-labs/FLUX.1-dev",
         "--jsonl_for_train=/renders_dataset.jsonl",
         "--output_dir=/model_storage/flux-control-lora",
         "--mixed_precision=bf16",
-        "--train_batch_size=8",
+        "--train_batch_size=4",
         "--rank=64",
         "--gradient_accumulation_steps=1",
         "--gradient_checkpointing",
@@ -55,9 +55,9 @@ def start_training():
         "--validation_image=path/to/validation/image.png",
         "--validation_prompt=your validation prompt here",
         "--seed=42",
-        "--resolution_widht=2048",
+        "--resolution_width=2048",
         "--resolution_height=1536",
-        "--dataloader_num_workers=15",
+        "--dataloader_num_workers=4",
         "--offload"
     ]
     subprocess.run(
