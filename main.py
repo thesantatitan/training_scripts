@@ -34,20 +34,10 @@ objaverse_volume = modal.CloudBucketMount(
 @app.function(gpu="H100", image=image, volumes={'/datadisk':objaverse_volume})  # defining a Modal Function with a GPU
 def check_gpus():
     import subprocess
-
-    print("here's my gpu:")
-    try:
-        subprocess.run(["nvidia-smi"], check=True)
-        subprocess.run(['ls', '-l', '/datadisk'], check=True)
-    except Exception:
-        print("no gpu found :(")
-    print(torch.cuda.is_available())
-
+    ls = subprocess.run(['ls', '-l', '/datadisk'], capture_output=True)
+    subprocess.run(['wc', '-l'], input=ls.stdout)
 
 @app.local_entrypoint()  # defining a CLI entrypoint
 def main():
-    print("hello from the .local playground!")
-    check_gpus.local()
-
     print("let's try this .remote-ly on Modal...")
     check_gpus.remote()
