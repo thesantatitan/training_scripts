@@ -7,8 +7,8 @@ hftoken = os.getenv("HF_TOKEN")
 app = modal.App("train-flux")  # creating an App
 
 def cache_model():
-    from diffusers.pipelines.controlnet_sd3 import StableDiffusion3ControlNetPipeline
-    pipe = StableDiffusion3ControlNetPipeline.from_pretrained("stabilityai/stable-diffusion-3.5-medium")
+    from diffusers.pipelines.stable_diffusion_3.pipeline_stable_diffusion_3 import StableDiffusion3Pipeline
+    pipe = StableDiffusion3Pipeline.from_pretrained("stabilityai/stable-diffusion-3.5-medium")
     
 image = (
     modal.Image.from_registry('pytorch/pytorch:2.3.1-cuda12.1-cudnn8-devel')
@@ -50,10 +50,10 @@ def start_training():
     command = [
         "accelerate", "launch", "--config_file=/model_storage/accelerate_config_controlnet.yaml", "/controlnet/train_controlnet_sd3.py",
         "--pretrained_model_name_or_path=stabilityai/stable-diffusion-3.5-medium",
-        "--train_data_dir=/datadisk",
+        "--jsonl_for_train=/renders_dataset.jsonl",
         "--output_dir=/model_storage/sd3-controlnet",
         "--mixed_precision=bf16",
-        "--train_batch_size=8",
+        "--train_batch_size=2",
         "--gradient_accumulation_steps=1",
         "--gradient_checkpointing",
         "--learning_rate=1e-4",

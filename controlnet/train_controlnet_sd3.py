@@ -614,17 +614,23 @@ def parse_args(input_args=None):
             " more information see https://huggingface.co/docs/accelerate/v0.17.0/en/package_reference/accelerator#accelerate.Accelerator"
         ),
     )
-
+    parser.add_argument(
+        "--jsonl_for_train",
+        type=str,
+        default=None,
+        help="Path to the jsonl file containing the training data.",
+    )
+    
     if input_args is not None:
         args = parser.parse_args(input_args)
     else:
         args = parser.parse_args()
+    
+    if args.dataset_name is None and args.train_data_dir is None and args.jsonl_for_train is None:
+        raise ValueError("Specify either `--dataset_name` or `--train_data_dir` or `--jsonl_for_train`")
 
-    if args.dataset_name is None and args.train_data_dir is None:
-        raise ValueError("Specify either `--dataset_name` or `--train_data_dir`")
-
-    if args.dataset_name is not None and args.train_data_dir is not None:
-        raise ValueError("Specify only one of `--dataset_name` or `--train_data_dir`")
+    if sum(arg is not None for arg in [args.dataset_name, args.train_data_dir, args.jsonl_for_train]) > 1:
+        raise ValueError("Specify only one of `--dataset_name`, `--train_data_dir`, or `--jsonl_for_train`")
 
     if args.proportion_empty_prompts < 0 or args.proportion_empty_prompts > 1:
         raise ValueError("`--proportion_empty_prompts` must be in the range [0, 1].")
@@ -671,6 +677,10 @@ def make_train_dataset(args, tokenizer_one, tokenizer_two, tokenizer_three, acce
             args.dataset_config_name,
             cache_dir=args.cache_dir,
         )
+    elif args.jsonl_for_train is not None:
+        # load from jsonl
+        dataset = load_dataset("json", data_files=args.jsonl_for_train, cache_dir=args.cache_dir)
+        dataset = dataset.flatten_indices()
     else:
         if args.train_data_dir is not None:
             dataset = load_dataset(
