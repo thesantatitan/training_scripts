@@ -39,7 +39,7 @@ model_volume = modal.Volume.from_name('models_storage')
 def check_stuff():
     import subprocess
     modal.interact()
-    subprocess.run(["accelerate", "config", '--config_file', '/model_storage/accelerate_config.yaml'], check=True)
+    subprocess.run(["accelerate", "config", '--config_file', '/model_storage/accelerate_config_controlnet.yaml'], check=True)
     
 
 
@@ -47,13 +47,12 @@ def check_stuff():
 def start_training():
     import subprocess
     command = [
-        "accelerate", "launch", "--config_file=/model_storage/accelerate_config_controlnet.yaml", "/model_storage/accelerate_config.py",
+        "accelerate", "launch", "--config_file=/model_storage/accelerate_config_controlnet.yaml", "/controlnet/train_controlnet_sd3.py",
         "--pretrained_model_name_or_path=stabilityai/stable-diffusion-3.5-medium",
-        "--jsonl_for_train=/renders_dataset.jsonl",
-        "--output_dir=/model_storage/flux-control-lora",
+        "--train_data_dir=/datadisk",
+        "--output_dir=/model_storage/sd3-controlnet",
         "--mixed_precision=bf16",
-        "--train_batch_size=4",
-        "--rank=64",
+        "--train_batch_size=8",
         "--gradient_accumulation_steps=1",
         "--gradient_checkpointing",
         "--learning_rate=1e-4",
@@ -65,6 +64,8 @@ def start_training():
         "--resolution_width=1024",
         "--resolution_height=768",
         "--dataloader_num_workers=4",
+        "--push_to_hub",
+        "--hub_model_id=thesantatitan/sd3-controlnet-orbit"
         "--offload"
     ]
     subprocess.run(
@@ -75,5 +76,5 @@ def start_training():
 @app.local_entrypoint()  # defining a CLI entrypoint
 def main():
     print("let's try this .remote-ly on Modal...")
-    start_training.remote()
-    # check_stuff.remote()
+    # start_training.remote()
+    check_stuff.remote()

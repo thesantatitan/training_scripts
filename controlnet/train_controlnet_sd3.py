@@ -305,6 +305,24 @@ def parse_args(input_args=None):
         ),
     )
     parser.add_argument(
+        "--resolution_height",
+        type=int,
+        default=512,
+        help=(
+            "The resolution for input images, all the images in the train/validation dataset will be resized to this"
+            " resolution"
+        ),
+    )
+    parser.add_argument(
+        "--resolution_width",
+        type=int,
+        default=512,
+        help=(
+            "The resolution for input images, all the images in the train/validation dataset will be resized to this"
+            " resolution"
+        ),
+    )
+    parser.add_argument(
         "--train_batch_size", type=int, default=4, help="Batch size (per device) for the training dataloader."
     )
     parser.add_argument("--num_train_epochs", type=int, default=1)
@@ -633,7 +651,10 @@ def parse_args(input_args=None):
         raise ValueError(
             "`--resolution` must be divisible by 8 for consistently sized encoded images between the VAE and the controlnet encoder."
         )
-
+    if args.resolution_width % 8 != 0 or args.resolution_height % 8 != 0:
+        raise ValueError(
+            "`--resolution_width` and `--resolution_height` must be divisible by 8 for consistently sized encoded images between the VAE and the controlnet encoder."
+        )
     return args
 
 
@@ -712,8 +733,8 @@ def make_train_dataset(args, tokenizer_one, tokenizer_two, tokenizer_three, acce
 
     image_transforms = transforms.Compose(
         [
-            transforms.Resize(args.resolution, interpolation=transforms.InterpolationMode.BILINEAR),
-            transforms.CenterCrop(args.resolution),
+            transforms.Resize((args.resolution_height, args.resolution_width), interpolation=transforms.InterpolationMode.BILINEAR),
+            # transforms.CenterCrop(args.resolution),
             transforms.ToTensor(),
             transforms.Normalize([0.5], [0.5]),
         ]
@@ -721,8 +742,8 @@ def make_train_dataset(args, tokenizer_one, tokenizer_two, tokenizer_three, acce
 
     conditioning_image_transforms = transforms.Compose(
         [
-            transforms.Resize(args.resolution, interpolation=transforms.InterpolationMode.BILINEAR),
-            transforms.CenterCrop(args.resolution),
+            transforms.Resize((args.resolution_height, args.resolution_width), interpolation=transforms.InterpolationMode.BILINEAR),
+            # transforms.CenterCrop(args.resolution),
             transforms.ToTensor(),
         ]
     )
