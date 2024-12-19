@@ -22,6 +22,7 @@ image = (
     .run_commands('cd training_scripts')
     .run_commands('uv pip install --system --compile-bytecode sentencepiece protobuf')
     .run_function(cache_model)
+    .add_local_file('./renders_dataset.jsonl', '/renders_dataset.jsonl',copy=True)
 )
 
 objaverse_volume = modal.CloudBucketMount(
@@ -30,14 +31,37 @@ objaverse_volume = modal.CloudBucketMount(
     secret=modal.Secret.from_name('r2-secret')
 )
 
+model_volume = modal.Volume.from_name('models_storage')
 
-@app.function(gpu="H100", image=image, volumes={'/datadisk':objaverse_volume})  # defining a Modal Function with a GPU
-def check_gpus():
+@app.function(gpu="A10G", image=image, volumes={'/datadisk':objaverse_volume, '/model_storage':model_volume})  # defining a Modal Function with a GPU
+def start_training():
     import subprocess
-    ls = subprocess.run(['ls', '-l', '/datadisk'], capture_output=True)
-    subprocess.run(['wc', '-l'], input=ls.stdout)
+    command = [
+        "accelerate", "launch", "/training_scripts/flux-control/train_control_lora_flux.py",
+        "--pretrained_model_name_or_path=black-forest-labs/FLUX.1-dev",
+        "--jsonl_for_train=renders_dataset.jsonl",
+        "--output_dir=/model_storage/flux-control-lora",
+        "--mixed_precision=bf16",
+        "--train_batch_size=8",
+        "--rank=64",
+        "--gradient_accumulation_steps=1",
+        "--gradient_checkpointing",
+        "--learning_rate=1e-4",
+        "--report_to=wandb",
+        "--lr_scheduler=constant",
+        "--lr_warmup_steps=0",
+        "--max_train_steps=5000",
+        "--validation_image=path/to/validation/image.png",
+        "--validation_prompt=your validation prompt here",
+        "--seed=42",
+        "--offload"
+    ]
+    subprocess.run(
+        command,
+        check=True
+    )
 
 @app.local_entrypoint()  # defining a CLI entrypoint
 def main():
     print("let's try this .remote-ly on Modal...")
-    check_gpus.remote()
+    start_training.remote()
