@@ -944,25 +944,46 @@ def main(args):
                 transformer_ = FluxTransformer2DModel.from_pretrained(
                     args.pretrained_model_name_or_path, subfolder="transformer"
                 ).to(accelerator.device, weight_dtype)
+                
+                # Handle input dimension doubling before adding adapter
+                with torch.no_grad():
+                    initial_input_channels = transformer_.config.in_channels
+                    new_linear = torch.nn.Linear(
+                        transformer_.x_embedder.in_features * 2,
+                        transformer_.x_embedder.out_features,
+                        bias=transformer_.x_embedder.bias is not None,
+                        dtype=transformer_.dtype,
+                        device=transformer_.device,
+                    )
+                    new_linear.weight.zero_()
+                    new_linear.weight[:, :initial_input_channels].copy_(transformer_.x_embedder.weight)
+                    if transformer_.x_embedder.bias is not None:
+                        new_linear.bias.copy_(transformer_.x_embedder.bias)
+                    transformer_.x_embedder = new_linear
+                    transformer_.register_to_config(in_channels=initial_input_channels * 2)
+                
                 transformer_.add_adapter(transformer_lora_config)
 
+            # Load LoRA state dict
             lora_state_dict = FluxControlPipeline.lora_state_dict(input_dir)
             transformer_lora_state_dict = {
                 f'{k.replace("transformer.", "")}': v
                 for k, v in lora_state_dict.items()
                 if k.startswith("transformer.") and "lora" in k
             }
+            
+            # Load the state dict
             incompatible_keys = set_peft_model_state_dict(
                 transformer_, transformer_lora_state_dict, adapter_name="default"
             )
             if incompatible_keys is not None:
-                # check only for unexpected keys
                 unexpected_keys = getattr(incompatible_keys, "unexpected_keys", None)
                 if unexpected_keys:
                     logger.warning(
                         f"Loading adapter weights from state_dict led to unexpected keys not found in the model: "
                         f" {unexpected_keys}. "
                     )
+            
             if args.train_norm_layers:
                 transformer_norm_state_dict = {
                     k: v
@@ -975,13 +996,11 @@ def main(args):
                     discard_original_layers=False,
                 )
 
-            # Make sure the trainable params are in float32. This is again needed since the base models
-            # are in `weight_dtype`. More details:
-            # https://github.com/huggingface/diffusers/pull/6514#discussion_r1449796804
+            # Make sure the trainable params are in float32 when using fp16
             if args.mixed_precision == "fp16":
                 models = [transformer_]
-                # only upcast trainable parameters (LoRA) into fp32
                 cast_training_params(models)
+
 
         accelerator.register_save_state_pre_hook(save_model_hook)
         accelerator.register_load_state_pre_hook(load_model_hook)
