@@ -7,7 +7,7 @@ hftoken = os.getenv("HF_TOKEN")
 app = modal.App("train-flux")  # creating an App
 
 def cache_model():
-    from diffusers.pipelines.stable_diffusion_3 import StableDiffusion3ControlNetPipeline
+    from diffusers.pipelines.controlnet_sd3 import StableDiffusion3ControlNetPipeline
     pipe = StableDiffusion3ControlNetPipeline.from_pretrained("stabilityai/stable-diffusion-3.5-medium")
     
 image = (
