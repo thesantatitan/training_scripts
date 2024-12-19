@@ -577,7 +577,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--validation_image",
         type=str,
-        default=["https://9a0ea449e510c0a28780f7b8ebb740c8.r2.cloudflarestorage.com/objaverse-renders/000cb1ca-f208-5064-a363-63b6a4da1b44/repeated.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=467bedccda302c89696e3d286639b112%2F20241219%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20241219T075724Z&X-Amz-Expires=86400&X-Amz-SignedHeaders=host&x-id=GetObject&X-Amz-Signature=ed8430291105cc0318fa17171f68da7b7bdc21c26961ea99f8e113ea4ce6bc9f"],
+        default=["/repeated.png"],
         nargs="+",
         help=(
             "A set of paths to the controlnet conditioning image be evaluated every `--validation_steps`"
@@ -774,8 +774,8 @@ def make_train_dataset(args, tokenizer_one, tokenizer_two, tokenizer_three, acce
             for image in examples[conditioning_image_column]
         ]
 
-        images = [image_transforms(image) for image in images]
-        conditioning_images = [conditioning_image_transforms(image) for image in conditioning_images]
+        images = [image_transforms(image).to(dtype=torch.bfloat16) for image in images]
+        conditioning_images = [conditioning_image_transforms(image).to(dtype=torch.bfloat16) for image in conditioning_images]
 
         examples["pixel_values"] = images
         examples["conditioning_pixel_values"] = conditioning_images
@@ -794,13 +794,13 @@ def make_train_dataset(args, tokenizer_one, tokenizer_two, tokenizer_three, acce
 
 def collate_fn(examples):
     pixel_values = torch.stack([example["pixel_values"] for example in examples])
-    pixel_values = pixel_values.to(memory_format=torch.contiguous_format).float()
+    pixel_values = pixel_values.to(memory_format=torch.contiguous_format).bfloat16()
 
     conditioning_pixel_values = torch.stack([example["conditioning_pixel_values"] for example in examples])
-    conditioning_pixel_values = conditioning_pixel_values.to(memory_format=torch.contiguous_format).float()
+    conditioning_pixel_values = conditioning_pixel_values.to(memory_format=torch.contiguous_format).bfloat16()
 
-    prompt_embeds = torch.stack([torch.tensor(example["prompt_embeds"]) for example in examples])
-    pooled_prompt_embeds = torch.stack([torch.tensor(example["pooled_prompt_embeds"]) for example in examples])
+    prompt_embeds = torch.stack([torch.tensor(example["prompt_embeds"], dtype=torch.bfloat16) for example in examples])
+    pooled_prompt_embeds = torch.stack([torch.tensor(example["pooled_prompt_embeds"], dtype=torch.bfloat16) for example in examples])
 
     return {
         "pixel_values": pixel_values,
@@ -808,7 +808,6 @@ def collate_fn(examples):
         "prompt_embeds": prompt_embeds,
         "pooled_prompt_embeds": pooled_prompt_embeds,
     }
-
 
 # Copied from dreambooth sd3 example
 def _encode_prompt_with_t5(

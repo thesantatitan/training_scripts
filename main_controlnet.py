@@ -26,6 +26,7 @@ image = (
     .run_commands('uv pip install --system --compile-bytecode deepspeed')
     .add_local_file('./renders_dataset.jsonl', '/renders_dataset.jsonl',copy=True)
     .add_local_file('./controlnet/train_controlnet_sd3.py', '/controlnet/train_controlnet_sd3.py',copy=True)
+    .add_local_file('./repeated.png', '/repeated.png',copy=True)
 )
 
 objaverse_volume = modal.CloudBucketMount(
@@ -61,7 +62,7 @@ def start_training():
         "--lr_scheduler=constant_with_warmup",
         "--lr_warmup_steps=100",
         "--max_train_steps=5000",
-        "--max_train_samples=500"
+        "--max_train_samples=500",
         "--seed=42",
         "--resolution_width=1024",
         "--resolution_height=768",
