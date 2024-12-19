@@ -116,7 +116,7 @@ def log_validation(flux_transformer, args, accelerator, weight_dtype, step, is_f
     for validation_prompt, validation_image in zip(validation_prompts, validation_images):
         validation_image = load_image(validation_image)
         # maybe need to inference on 1024 to get a good image
-        validation_image = validation_image.resize((args.resolution, args.resolution))
+        validation_image = validation_image.resize((args.resolution_width, args.resolution_height))
 
         images = []
 
