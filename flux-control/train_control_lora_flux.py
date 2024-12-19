@@ -126,7 +126,7 @@ def log_validation(flux_transformer, args, accelerator, weight_dtype, step, is_f
     for validation_prompt, validation_image in zip(validation_prompts, validation_images):
         validation_image = load_image(validation_image)
         # maybe need to inference on 1024 to get a good image
-        validation_image = validation_image.resize((args.resolution, args.resolution))
+        validation_image = validation_image.resize((args.resolution_width, args.resolution_height))
 
         images = []
 
@@ -140,10 +140,10 @@ def log_validation(flux_transformer, args, accelerator, weight_dtype, step, is_f
                     guidance_scale=args.guidance_scale,
                     generator=generator,
                     max_sequence_length=512,
-                    height=args.resolution,
-                    width=args.resolution,
+                    height=args.resolution_height,
+                    width=args.resolution_width,
                 ).images[0]
-            image = image.resize((args.resolution, args.resolution))
+            image = image.resize((args.resolution_width, args.resolution_height))
             images.append(image)
         image_logs.append(
             {"validation_image": validation_image, "images": images, "validation_prompt": validation_prompt}
@@ -274,6 +274,18 @@ def parse_args(input_args=None):
             "The resolution for input images, all the images in the train/validation dataset will be resized to this"
             " resolution"
         ),
+    )
+    parser.add_argument(
+        "--resolution_width",
+        type=int,
+        default=1024,
+        help="The width resolution for input images, all images will be resized to this width",
+    )
+    parser.add_argument(
+        "--resolution_height",
+        type=int,
+        default=1024,
+        help="The height resolution for input images, all images will be resized to this height",
     )
     parser.add_argument(
         "--train_batch_size", type=int, default=4, help="Batch size (per device) for the training dataloader."
@@ -615,6 +627,10 @@ def parse_args(input_args=None):
         raise ValueError(
             "`--resolution` must be divisible by 8 for consistently sized encoded images between the VAE and the controlnet encoder."
         )
+    if args.resolution_width % 8 != 0 or args.resolution_height % 8 != 0:
+        raise ValueError(
+            "`--resolution_width` and `--resolution_height` must be divisible by 8 for consistently sized encoded images between the VAE and the controlnet encoder."
+        )
 
     return args
 
@@ -677,7 +693,7 @@ def get_train_dataset(args, accelerator):
 def prepare_train_dataset(dataset, accelerator):
     image_transforms = transforms.Compose(
         [
-            transforms.Resize((args.resolution, args.resolution), interpolation=transforms.InterpolationMode.BILINEAR),
+            transforms.Resize((args.resolution_height, args.resolution_width), interpolation=transforms.InterpolationMode.BILINEAR),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
         ]
