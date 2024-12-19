@@ -57,7 +57,7 @@ def start_training():
         "--gradient_checkpointing",
         "--learning_rate=1e-4",
         "--report_to=wandb",
-        "--lr_scheduler=constant_with_warmup",
+        "--lr_scheduler=linear",
         "--lr_warmup_steps=100",
         "--max_train_steps=5000",
         "--seed=42",
