@@ -68,7 +68,7 @@ def start_training():
         "--dataloader_num_workers=4",
         "--hub_model_id=thesantatitan/flux-control-orbit",
         "--push_to_hub",
-        "--resume_from_checkpoint=checkpoint-1400",
+        "--resume_from_checkpoint=latest",
         "--offload"
     ]
     subprocess.run(
