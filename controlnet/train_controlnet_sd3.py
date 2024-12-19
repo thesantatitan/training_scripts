@@ -564,12 +564,9 @@ def parse_args(input_args=None):
         help="Maximum sequence length to use with with the T5 text encoder",
     )
     parser.add_argument(
-        "--dataset_preprocess_batch_size", type=int, default=1000, help="Batch size for preprocessing dataset."
-    )
-    parser.add_argument(
         "--validation_prompt",
         type=str,
-        default=None,
+        default=[""],
         nargs="+",
         help=(
             "A set of prompts evaluated every `--validation_steps` and logged to `--report_to`."
@@ -580,7 +577,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--validation_image",
         type=str,
-        default=None,
+        default=["https://9a0ea449e510c0a28780f7b8ebb740c8.r2.cloudflarestorage.com/objaverse-renders/000cb1ca-f208-5064-a363-63b6a4da1b44/repeated.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=467bedccda302c89696e3d286639b112%2F20241219%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20241219T075724Z&X-Amz-Expires=86400&X-Amz-SignedHeaders=host&x-id=GetObject&X-Amz-Signature=ed8430291105cc0318fa17171f68da7b7bdc21c26961ea99f8e113ea4ce6bc9f"],
         nargs="+",
         help=(
             "A set of paths to the controlnet conditioning image be evaluated every `--validation_steps`"
@@ -592,7 +589,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--num_validation_images",
         type=int,
-        default=4,
+        default=1,
         help="Number of images to be generated for each `--validation_image`, `--validation_prompt` pair",
     )
     parser.add_argument(
@@ -619,6 +616,12 @@ def parse_args(input_args=None):
         type=str,
         default=None,
         help="Path to the jsonl file containing the training data.",
+    )
+    parser.add_argument(
+        "--dataset_preprocess_batch_size", 
+        type=int, 
+        default=100,  # Using a smaller default than 1000 to be safer
+        help="Batch size for preprocessing dataset."
     )
     
     if input_args is not None:
@@ -759,10 +762,19 @@ def make_train_dataset(args, tokenizer_one, tokenizer_two, tokenizer_three, acce
     )
 
     def preprocess_train(examples):
-        images = [image.convert("RGB") for image in examples[image_column]]
-        images = [image_transforms(image) for image in images]
+        # Handle both PIL images and image paths
+        images = [
+            (image.convert("RGB") if not isinstance(image, str) else Image.open(image).convert("RGB"))
+            for image in examples[image_column]
+        ]
+        
+        # Do the same for conditioning images
+        conditioning_images = [
+            (image.convert("RGB") if not isinstance(image, str) else Image.open(image).convert("RGB"))
+            for image in examples[conditioning_image_column]
+        ]
 
-        conditioning_images = [image.convert("RGB") for image in examples[conditioning_image_column]]
+        images = [image_transforms(image) for image in images]
         conditioning_images = [conditioning_image_transforms(image) for image in conditioning_images]
 
         examples["pixel_values"] = images
@@ -1143,6 +1155,20 @@ def main(args):
 
     tokenizers = [tokenizer_one, tokenizer_two, tokenizer_three]
     text_encoders = [text_encoder_one, text_encoder_two, text_encoder_three]
+    
+    def compute_text_embeddings_once(text_encoders, tokenizers, prompt, max_sequence_length):
+        # Compute embeddings for just one prompt
+        prompt_embeds, pooled_prompt_embeds = encode_prompt(
+            text_encoders, 
+            tokenizers, 
+            [prompt], # Pass as list since encode_prompt expects a list
+            max_sequence_length
+        )
+        
+        return {
+            "prompt_embeds": prompt_embeds[0],  # Take first item since we only computed one
+            "pooled_prompt_embeds": pooled_prompt_embeds[0]
+        }
 
     def compute_text_embeddings(batch, text_encoders, tokenizers):
         with torch.no_grad():
@@ -1159,18 +1185,27 @@ def main(args):
         text_encoders=text_encoders,
         tokenizers=tokenizers,
     )
-    with accelerator.main_process_first():
-        from datasets.fingerprint import Hasher
 
-        # fingerprint used by the cache for the other processes to load the result
-        # details: https://github.com/huggingface/diffusers/pull/4038#discussion_r1266078401
-        new_fingerprint = Hasher.hash(args)
-        train_dataset = train_dataset.map(
-            compute_embeddings_fn,
-            batched=True,
-            batch_size=args.dataset_preprocess_batch_size,
-            new_fingerprint=new_fingerprint,
+    with accelerator.main_process_first():
+        # Get the first caption
+        first_caption = train_dataset[0]["prompts"]
+        total_examples = len(train_dataset)
+        
+        # Compute embeddings once
+        embeds = compute_text_embeddings_once(
+            text_encoders, 
+            tokenizers, 
+            first_caption,
+            args.max_sequence_length
         )
+        
+        # Create a complete tensor with all embeddings at once
+        all_prompt_embeds = embeds["prompt_embeds"].expand(total_examples, -1, -1)
+        all_pooled_prompt_embeds = embeds["pooled_prompt_embeds"].expand(total_examples, -1)
+        
+        # Add these directly to the dataset
+        train_dataset = train_dataset.add_column("prompt_embeds", all_prompt_embeds.cpu().numpy())
+        train_dataset = train_dataset.add_column("pooled_prompt_embeds", all_pooled_prompt_embeds.cpu().numpy())
 
     del text_encoder_one, text_encoder_two, text_encoder_three
     del tokenizer_one, tokenizer_two, tokenizer_three

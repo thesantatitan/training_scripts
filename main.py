@@ -25,6 +25,7 @@ image = (
     .run_commands('uv pip install --system --compile-bytecode deepspeed')
     .add_local_file('./renders_dataset.jsonl', '/renders_dataset.jsonl',copy=True)
     .add_local_file('./flux-control/train_control_lora_flux.py', '/flux-control/train_control_lora_flux.py',copy=True)
+    .env({"WANDB_RESUME":"allow","WANDB_RUN_ID":"a1xoce3c"})
 )
 
 objaverse_volume = modal.CloudBucketMount(
@@ -43,7 +44,7 @@ def check_stuff():
     
 
 
-@app.function(gpu="H100:8", cpu=5, image=image, volumes={'/datadisk':objaverse_volume, '/model_storage':model_volume}, timeout=86400)  # defining a Modal Function with a GPU
+@app.function(gpu="H100:8", cpu=5, image=image, volumes={'/datadisk':objaverse_volume, '/model_storage':model_volume}, timeout=86400, )  # defining a Modal Function with a GPU
 def start_training():
     import subprocess
     command = [
@@ -67,6 +68,7 @@ def start_training():
         "--dataloader_num_workers=4",
         "--hub_model_id=thesantatitan/flux-control-orbit",
         "--push_to_hub",
+        "--resume_from_checkpoint=checkpoint-1400",
         "--offload"
     ]
     subprocess.run(

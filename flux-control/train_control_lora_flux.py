@@ -498,7 +498,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--validation_prompt",
         type=str,
-        default=[""],
+        default=["", ""],
         nargs="+",
         help=(
             "A set of prompts evaluated every `--validation_steps` and logged to `--report_to`."
@@ -509,7 +509,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--validation_image",
         type=str,
-        default=["https://9a0ea449e510c0a28780f7b8ebb740c8.r2.cloudflarestorage.com/objaverse-renders/000cb1ca-f208-5064-a363-63b6a4da1b44/repeated.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=467bedccda302c89696e3d286639b112%2F20241219%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20241219T075724Z&X-Amz-Expires=86400&X-Amz-SignedHeaders=host&x-id=GetObject&X-Amz-Signature=ed8430291105cc0318fa17171f68da7b7bdc21c26961ea99f8e113ea4ce6bc9f"],
+        default=["https://9a0ea449e510c0a28780f7b8ebb740c8.r2.cloudflarestorage.com/objaverse-renders/000cb1ca-f208-5064-a363-63b6a4da1b44/repeated.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=467bedccda302c89696e3d286639b112%2F20241219%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20241219T075724Z&X-Amz-Expires=86400&X-Amz-SignedHeaders=host&x-id=GetObject&X-Amz-Signature=ed8430291105cc0318fa17171f68da7b7bdc21c26961ea99f8e113ea4ce6bc9f", "https://9a0ea449e510c0a28780f7b8ebb740c8.r2.cloudflarestorage.com/objaverse-renders/f0013ff2-573d-5d04-b1e6-51f27716fae4/repeated.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=467bedccda302c89696e3d286639b112%2F20241219%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20241219T171417Z&X-Amz-Expires=86400&X-Amz-SignedHeaders=host&x-id=GetObject&X-Amz-Signature=92786879e8820e42b39a304796fbc27f189dc1596cab113fa5fefee72e0d97ee"],
         nargs="+",
         help=(
             "A set of paths to the controlnet conditioning image be evaluated every `--validation_steps`"
