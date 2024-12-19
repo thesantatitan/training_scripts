@@ -38,7 +38,7 @@ def check_gpus():
     print("here's my gpu:")
     try:
         subprocess.run(["nvidia-smi"], check=True)
-        subprocess.run(['ls', '-l'], check=True)
+        subprocess.run(['ls', '-l', '/datadisk'], check=True)
     except Exception:
         print("no gpu found :(")
     print(torch.cuda.is_available())
