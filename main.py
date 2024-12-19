@@ -4,14 +4,14 @@ import os
 
 hftoken = os.getenv("HF_TOKEN")
 
-app = modal.App("example-get-started")  # creating an App
+app = modal.App("train-flux")  # creating an App
 
 def cache_model():
     from diffusers.pipelines.flux.pipeline_flux_control import FluxControlPipeline
     pipe = FluxControlPipeline.from_pretrained("black-forest-labs/FLUX.1-dev")
     
 image = (
-    modal.Image.debian_slim()
+    modal.Image.from_registry('pytorch/pytorch:2.3.1-cuda12.1-cudnn8-devel')
     .apt_install(["git", "build-essential"])
     .run_commands('git clone https://github.com/thesantatitan/training_scripts.git')
     .run_commands('uv pip install -r training_scripts/requirements.txt --compile-bytecode --system && uv pip install -r training_scripts/flux-control/requirements.txt --compile-bytecode --system')
@@ -22,6 +22,7 @@ image = (
     .run_commands('cd training_scripts')
     .run_commands('uv pip install --system --compile-bytecode sentencepiece protobuf datasets')
     .run_function(cache_model)
+    .run_commands('uv pip install --system --compile-bytecode deepspeed')
     .add_local_file('./renders_dataset.jsonl', '/renders_dataset.jsonl',copy=True)
     .add_local_file('./flux-control/train_control_lora_flux.py', '/flux-control/train_control_lora_flux.py',copy=True)
 )
@@ -34,30 +35,37 @@ objaverse_volume = modal.CloudBucketMount(
 
 model_volume = modal.Volume.from_name('models_storage')
 
-@app.function(gpu="H100", cpu=5, image=image, volumes={'/datadisk':objaverse_volume, '/model_storage':model_volume}, timeout=86400)  # defining a Modal Function with a GPU
+@app.function(gpu="H100:8", image=image, volumes={'/datadisk':objaverse_volume, '/model_storage':model_volume}, timeout=3599)
+def check_stuff():
+    import subprocess
+    modal.interact()
+    subprocess.run(["accelerate", "config", '--config_file', '/model_storage/accelerate_config.yaml'], check=True)
+    
+
+
+@app.function(gpu="H100:8", cpu=5, image=image, volumes={'/datadisk':objaverse_volume, '/model_storage':model_volume}, timeout=86400)  # defining a Modal Function with a GPU
 def start_training():
     import subprocess
     command = [
-        "accelerate", "launch", "/flux-control/train_control_lora_flux.py",
+        "accelerate", "launch", "--config_file=/model_storage/accelerate_config.yaml", "/flux-control/train_control_lora_flux.py",
         "--pretrained_model_name_or_path=black-forest-labs/FLUX.1-dev",
         "--jsonl_for_train=/renders_dataset.jsonl",
         "--output_dir=/model_storage/flux-control-lora",
         "--mixed_precision=bf16",
         "--train_batch_size=4",
         "--rank=64",
-        "--gradient_accumulation_steps=1",
+        "--gradient_accumulation_steps=8",
         "--gradient_checkpointing",
         "--learning_rate=1e-5",
         "--report_to=wandb",
-        "--lr_scheduler=constant",
+        "--lr_scheduler=cosine",
         "--lr_warmup_steps=0",
         "--max_train_steps=5000",
-        "--validation_image=path/to/validation/image.png",
-        "--validation_prompt=your validation prompt here",
         "--seed=42",
         "--resolution_width=2048",
         "--resolution_height=1536",
         "--dataloader_num_workers=4",
+        "--v"
         "--offload"
     ]
     subprocess.run(
@@ -69,3 +77,4 @@ def start_training():
 def main():
     print("let's try this .remote-ly on Modal...")
     start_training.remote()
+    # check_stuff.remote()
