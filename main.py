@@ -57,6 +57,7 @@ def start_training():
         "--seed=42",
         "--resolution_widht=2048",
         "--resolution_height=1536",
+        "--dataloader_num_workers=15",
         "--offload"
     ]
     subprocess.run(
