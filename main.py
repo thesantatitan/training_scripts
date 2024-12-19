@@ -20,17 +20,25 @@ image = (
     .run_commands(f'huggingface-cli login --token {hftoken}')
     .run_commands(f'uv pip install --system --compile-bytecode wandb').env({"WANDB_API_KEY": os.getenv("WANDB_API_KEY")}).run_commands('wandb login')
     .run_commands('cd training_scripts')
+    .run_commands('uv pip install --system --compile-bytecode sentencepiece protobuf')
     .run_function(cache_model)
 )
 
+objaverse_volume = modal.CloudBucketMount(
+    bucket_name='objaverse-renders',
+    bucket_endpoint_url='https://9a0ea449e510c0a28780f7b8ebb740c8.r2.cloudflarestorage.com',
+    secret=modal.Secret.from_name('r2-secret')
+)
 
-@app.function(gpu="H100", image=image)  # defining a Modal Function with a GPU
+
+@app.function(gpu="H100", image=image, volumes={'/datadisk':objaverse_volume})  # defining a Modal Function with a GPU
 def check_gpus():
     import subprocess
 
     print("here's my gpu:")
     try:
         subprocess.run(["nvidia-smi"], check=True)
+        subprocess.run(['ls', '-l'], check=True)
     except Exception:
         print("no gpu found :(")
     print(torch.cuda.is_available())
