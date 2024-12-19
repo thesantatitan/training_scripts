@@ -65,6 +65,8 @@ def start_training():
         "--resolution_width=1024",
         "--resolution_height=768",
         "--dataloader_num_workers=4",
+        "--hub_model_id=thesantatitan/flux-control-orbit",
+        "--push_to_hub",
         "--offload"
     ]
     subprocess.run(
