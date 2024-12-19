@@ -265,6 +265,18 @@ def parse_args(input_args=None):
         ),
     )
     parser.add_argument(
+        "--resolution_width",
+        type=int,
+        default=1024,
+        help="The width resolution for input images, all images will be resized to this width",
+    )
+    parser.add_argument(
+        "--resolution_height",
+        type=int,
+        default=1024,
+        help="The height resolution for input images, all images will be resized to this height",
+    )
+    parser.add_argument(
         "--train_batch_size", type=int, default=4, help="Batch size (per device) for the training dataloader."
     )
     parser.add_argument("--num_train_epochs", type=int, default=1)
@@ -277,7 +289,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--checkpointing_steps",
         type=int,
-        default=500,
+        default=200,
         help=(
             "Save a checkpoint of the training state every X updates. Checkpoints can be used for resuming training via `--resume_from_checkpoint`. "
             "In the case that the checkpoint is better than the final trained model, the checkpoint can also be used for inference."
@@ -454,7 +466,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--validation_prompt",
         type=str,
-        default=None,
+        default=["", ""],
         nargs="+",
         help=(
             "A set of prompts evaluated every `--validation_steps` and logged to `--report_to`."
@@ -465,7 +477,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--validation_image",
         type=str,
-        default=None,
+        default=["https://9a0ea449e510c0a28780f7b8ebb740c8.r2.cloudflarestorage.com/objaverse-renders/000cb1ca-f208-5064-a363-63b6a4da1b44/repeated.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=467bedccda302c89696e3d286639b112%2F20241219%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20241219T075724Z&X-Amz-Expires=86400&X-Amz-SignedHeaders=host&x-id=GetObject&X-Amz-Signature=ed8430291105cc0318fa17171f68da7b7bdc21c26961ea99f8e113ea4ce6bc9f", "https://9a0ea449e510c0a28780f7b8ebb740c8.r2.cloudflarestorage.com/objaverse-renders/f0013ff2-573d-5d04-b1e6-51f27716fae4/repeated.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=467bedccda302c89696e3d286639b112%2F20241219%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20241219T171417Z&X-Amz-Expires=86400&X-Amz-SignedHeaders=host&x-id=GetObject&X-Amz-Signature=92786879e8820e42b39a304796fbc27f189dc1596cab113fa5fefee72e0d97ee"],
         nargs="+",
         help=(
             "A set of paths to the controlnet conditioning image be evaluated every `--validation_steps`"
@@ -583,6 +595,10 @@ def parse_args(input_args=None):
         raise ValueError(
             "`--resolution` must be divisible by 8 for consistently sized encoded images between the VAE and the controlnet encoder."
         )
+    if args.resolution_width % 8 != 0 or args.resolution_height % 8 != 0:
+        raise ValueError(
+            "`--resolution_width` and `--resolution_height` must be divisible by 8 for consistently sized encoded images between the VAE and the controlnet encoder."
+        )
 
     return args
 
@@ -645,7 +661,7 @@ def get_train_dataset(args, accelerator):
 def prepare_train_dataset(dataset, accelerator):
     image_transforms = transforms.Compose(
         [
-            transforms.Resize((args.resolution, args.resolution), interpolation=transforms.InterpolationMode.BILINEAR),
+            transforms.Resize((args.resolution_height, args.resolution_width), interpolation=transforms.InterpolationMode.BILINEAR),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
         ]
