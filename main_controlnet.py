@@ -7,13 +7,14 @@ hftoken = os.getenv("HF_TOKEN")
 app = modal.App("train-flux")  # creating an App
 
 def cache_model():
-    from diffusers.pipelines.flux.pipeline_flux_control import FluxControlPipeline
-    pipe = FluxControlPipeline.from_pretrained("black-forest-labs/FLUX.1-dev")
+    from diffusers.pipelines.stable_diffusion_3 import StableDiffusion3ControlNetPipeline
+    pipe = StableDiffusion3ControlNetPipeline.from_pretrained("stabilityai/stable-diffusion-3.5-medium")
     
 image = (
     modal.Image.from_registry('pytorch/pytorch:2.3.1-cuda12.1-cudnn8-devel')
     .apt_install(["git", "build-essential"])
     .run_commands('git clone https://github.com/thesantatitan/training_scripts.git')
+    .run_commands('cd training_scripts && git pull')
     .run_commands('uv pip install -r training_scripts/requirements.txt --compile-bytecode --system && uv pip install -r training_scripts/controlnet/requirements_sd3.txt --compile-bytecode --system')
     .run_commands('uv pip install --system --compile-bytecode huggingface_hub[cli]')
     .run_commands(f'uv pip install --system --compile-bytecode huggingface_hub[hf_transfer]').env({"HF_HUB_ENABLE_HF_TRANSFER":"1"})
@@ -66,7 +67,6 @@ def start_training():
         "--dataloader_num_workers=4",
         "--push_to_hub",
         "--hub_model_id=thesantatitan/sd3-controlnet-orbit"
-        "--offload"
     ]
     subprocess.run(
         command,
@@ -76,5 +76,5 @@ def start_training():
 @app.local_entrypoint()  # defining a CLI entrypoint
 def main():
     print("let's try this .remote-ly on Modal...")
-    # start_training.remote()
-    check_stuff.remote()
+    start_training.remote()
+    # check_stuff.remote()
