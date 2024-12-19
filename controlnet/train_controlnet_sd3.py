@@ -1155,20 +1155,6 @@ def main(args):
 
     tokenizers = [tokenizer_one, tokenizer_two, tokenizer_three]
     text_encoders = [text_encoder_one, text_encoder_two, text_encoder_three]
-    
-    def compute_text_embeddings_once(text_encoders, tokenizers, prompt, max_sequence_length):
-        # Compute embeddings for just one prompt
-        prompt_embeds, pooled_prompt_embeds = encode_prompt(
-            text_encoders, 
-            tokenizers, 
-            [prompt], # Pass as list since encode_prompt expects a list
-            max_sequence_length
-        )
-        
-        return {
-            "prompt_embeds": prompt_embeds[0],  # Take first item since we only computed one
-            "pooled_prompt_embeds": pooled_prompt_embeds[0]
-        }
 
     def compute_text_embeddings(batch, text_encoders, tokenizers):
         with torch.no_grad():
@@ -1185,27 +1171,18 @@ def main(args):
         text_encoders=text_encoders,
         tokenizers=tokenizers,
     )
-
     with accelerator.main_process_first():
-        # Get the first caption
-        first_caption = train_dataset[0]["prompts"]
-        total_examples = len(train_dataset)
-        
-        # Compute embeddings once
-        embeds = compute_text_embeddings_once(
-            text_encoders, 
-            tokenizers, 
-            first_caption,
-            args.max_sequence_length
+        from datasets.fingerprint import Hasher
+
+        # fingerprint used by the cache for the other processes to load the result
+        # details: https://github.com/huggingface/diffusers/pull/4038#discussion_r1266078401
+        new_fingerprint = Hasher.hash(args)
+        train_dataset = train_dataset.map(
+            compute_embeddings_fn,
+            batched=True,
+            batch_size=args.dataset_preprocess_batch_size,
+            new_fingerprint=new_fingerprint,
         )
-        
-        # Create a complete tensor with all embeddings at once
-        all_prompt_embeds = embeds["prompt_embeds"].expand(total_examples, -1, -1)
-        all_pooled_prompt_embeds = embeds["pooled_prompt_embeds"].expand(total_examples, -1)
-        
-        # Add these directly to the dataset
-        train_dataset = train_dataset.add_column("prompt_embeds", all_prompt_embeds.cpu().numpy())
-        train_dataset = train_dataset.add_column("pooled_prompt_embeds", all_pooled_prompt_embeds.cpu().numpy())
 
     del text_encoder_one, text_encoder_two, text_encoder_three
     del tokenizer_one, tokenizer_two, tokenizer_three

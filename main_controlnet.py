@@ -61,6 +61,7 @@ def start_training():
         "--lr_scheduler=constant_with_warmup",
         "--lr_warmup_steps=100",
         "--max_train_steps=5000",
+        "--max_train_samples=500"
         "--seed=42",
         "--resolution_width=1024",
         "--resolution_height=768",
